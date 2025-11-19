@@ -1,0 +1,22 @@
+# Core Testing Dependencies
+pytest==7.4.3
+pytest-xdist==3.3.1
+pytest-html==4.1.1
+pytest-rerunfailures==12.0
+
+# Appium and Selenium
+Appium-Python-Client==2.11.1
+selenium==4.15.2
+
+# Allure Reporting
+allure-pytest==2.13.2
+allure-python-commons==2.13.2
+
+# Utilities and Configuration
+PyYAML==6.0.1
+python-dotenv==1.0.0
+requests==2.32.4
+
+# Logging and Debugging
+colorlog==6.7.0
+structlog==23.2.0

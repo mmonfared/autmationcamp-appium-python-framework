@@ -1,0 +1,14 @@
+/logs
+/reports
+/screenshots
+/temp
+/allure-results
+/allure-report
+*.log
+temp*.*
+Thumbs.db
+.DS_Store
+.idea
+.vscode
+*/__pycache__/
+/.pytest_cache

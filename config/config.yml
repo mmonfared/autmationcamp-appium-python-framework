@@ -1,0 +1,66 @@
+# Appium Server Configuration
+appium:
+  host: "localhost"
+  port: 4723
+  command_timeout: 60
+  implicit_wait: 10
+  page_load_timeout: 30
+  script_timeout: 30
+
+# Platform Configurations
+android:
+  platform_name: "Android"
+  automation_name: "UiAutomator2"
+  device_name: "Android Emulator"
+  platform_version: "11.0"
+  app_wait_duration: 30000
+  new_command_timeout: 300
+  no_reset: false
+  full_reset: false
+  auto_grant_permissions: true
+  auto_accept_alerts: true
+  app_package: "com.swaglabsmobileapp"
+  app_activity: ".MainActivity"
+  app_wait_activity: "com.swaglabsmobileapp.MainActivity"
+  disable_window_animation: true
+  ignore_hidden_api_policy_error: true
+
+ios:
+  platform_name: "iOS"
+  automation_name: "XCUITest"
+  device_name: "iPhone Simulator"
+  platform_version: "15.0"
+  bundle_id: "com.example.app"
+  new_command_timeout: 300
+  no_reset: false
+  full_reset: false
+  auto_accept_alerts: true
+  show_ios_log: true
+
+# Test Configuration
+test:
+  screenshot_on_failure: true
+  screenshot_path: "screenshots"
+  retry_count: 2
+  parallel_execution: false
+  max_workers: 2
+  test_timeout: 300
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/test_execution.log"
+  console: true
+
+# Allure Configuration
+allure:
+  results_path: "allure-results"
+  report_path: "allure-report"
+  clean_results: true
+
+# Environment URLs
+environment:
+  base_url: "https://api.example.com"
+  staging_url: "https://staging.example.com"
+  production_url: "https://prod.example.com"

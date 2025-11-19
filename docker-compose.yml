@@ -1,0 +1,20 @@
+services:
+  android:
+    image: budtmo/docker-android:emulator_9.0
+    privileged: true
+    container_name: android-container
+    ports:
+      - "6080:6080"
+      - "4723:4723"
+    environment:
+      EMULATOR_DEVICE: "Nexus 4"
+      WEB_VNC: "false"
+      WEB_VIDEO: "false"
+      APPIUM: "true"
+      EMULATOR_GPU: "off"
+      EMULATOR_ADDITIONAL_ARGS: "-no-snapshot -noaudio -no-boot-anim -no-window -memory 1536 -skin 720x1280 -cores 1 -gpu swiftshader_indirect -dpi-device 240"
+
+    devices:
+      - "/dev/kvm"
+    volumes:
+      - ./app/saucelabs.apk:/saucelabs.apk

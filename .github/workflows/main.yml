@@ -1,0 +1,197 @@
+name: Android Appium Tests
+
+on:
+  push:
+    branches: [ master ]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  test-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------
+      # 1 - Checkout source code
+      # -----------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # 2 - Start docker compose stack
+      # -----------------------------
+      - name: Start Docker-Android
+        run: |
+          docker compose up -d
+
+      # -----------------------------
+      # 3. Create temp directory for logs
+      # -----------------------------
+      - name: Create temp directory for logs
+        run: |
+          docker exec android-container sh -c "mkdir -p /tmp"
+
+      # -----------------------------
+      # 4 - Wait for Appium Server readiness
+      # -----------------------------
+      - name: Wait for Appium Server
+        run: |
+          echo "Waiting for Appium to be ready..."
+          for i in {1..60}; do
+            if curl -s http://localhost:4723/status | grep -q '"ready":true'; then
+              echo "Appium is ready!"
+              break
+            fi
+            echo "Appium not ready yet..."
+            sleep 5
+          done
+
+      # -----------------------------
+      # 5 - Wait for emulator to be READY inside the container
+      # -----------------------------
+      - name: Wait for Android Emulator Device
+        run: |
+          echo "Waiting for emulator to be READY..."
+          docker exec android-container adb wait-for-device
+          until docker exec android-container adb shell getprop sys.boot_completed | grep 1; do sleep 2; done
+
+      # -----------------------------
+      # 6 - Setup Python and dependencies
+      # -----------------------------
+      - name: Setup Python venv
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # -----------------------------
+      # 7 - Install Allure CLI
+      # -----------------------------
+      - name: Install Allure CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y default-jre
+          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          tar -xzf allure-2.27.0.tgz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+          allure --version
+
+      # -----------------------------
+      # 8. Start logcat recording
+      # -----------------------------
+      - name: Start logcat recording
+        run: |
+          docker exec android-container sh -c "adb logcat -v time > /tmp/logcat.txt" &
+
+       # -----------------------------
+       # 9. Disable unnecessary stuff on the emulator
+       # -----------------------------
+      - name: Disable animations, unnecessary processes, services and Google Apps
+        run: |
+          docker exec android-container sh -c "adb root"
+          docker exec android-container sh -c "adb shell settings put global window_animation_scale 0"
+          docker exec android-container sh -c "adb shell settings put global transition_animation_scale 0"
+          docker exec android-container sh -c "adb shell settings put global animator_duration_scale 0" 
+          docker exec android-container sh -c "adb shell settings put global heads_up_notifications_enabled 0"
+          docker exec android-container sh -c "adb shell settings put global show_notification_channel_warnings 0"
+          docker exec android-container sh -c "adb shell pm hide com.android.vending"
+          docker exec android-container sh -c "adb shell pm hide com.google.android.gms"
+          docker exec android-container sh -c "adb shell pm disable-user --user 0 com.google.android.gms"
+          docker exec android-container sh -c "adb shell pm hide com.google.android.googlequicksearchbox"
+          docker exec android-container sh -c "adb shell am force-stop com.google.android.gms"
+          docker exec android-container sh -c "adb shell am force-stop com.google.android.googlequicksearchbox"
+          docker exec android-container sh -c "adb shell setprop debug.hwui.render_dirty_regions false"
+        
+      # -----------------------------
+      # 10 - Run pytest tests
+      # -----------------------------
+      - name: Run UI Tests
+        run: |
+          source venv/bin/activate
+          
+          pytest --platform android --app-path=/saucelabs.apk --alluredir=allure-results --log-cli-level=DEBUG
+#          pytest tests/test_login.py::TestLogin::test_valid_login --platform android --app-path=/saucelabs.apk --alluredir=allure-results --log-cli-level=DEBUG
+
+
+      # -----------------------------
+      # 11 - If failed, collect system logs
+      # -----------------------------
+      - name: Collect debugging logs
+        if: failure() || steps.tests.outcome == 'failure' || steps.tests.conclusion == 'failure'
+        run: |
+          mkdir -p artifacts
+  
+          # Pull logcat
+          docker exec android-container sh -c "cat /tmp/logcat.txt" \
+            > artifacts/logcat.txt || true
+  
+          # Pull dumpsys
+          docker exec android-container sh -c "adb shell dumpsys" \
+            > artifacts/dumpsys.txt || true
+
+      # -----------------------------
+      # 12 - Generate Allure Report
+      # -----------------------------
+      - name: Generate Allure Report
+        if: always()
+        run: |
+          allure generate allure-results --clean -o allure-report
+      # -----------------------------
+      # 13 - Upload Allure Report as Artifact
+      # -----------------------------
+      - name: Upload Allure Report as .zip Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report
+
+      # -----------------------------
+      # 14. Upload Upload Allure Report for GitHub Pages
+      # -----------------------------
+      - name: Upload Allure Report for GitHub Pages
+        uses: actions/upload-pages-artifact@v4
+        if: always()
+        with:
+          path: allure-report
+
+      # -----------------------------
+      # 15. Upload logs artifacts
+      # -----------------------------
+      - name: Upload logs artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-debug-logs
+          path: artifacts/
+
+      # -----------------------------
+      # 16 - Always dump logs on failure or success
+      - name: Dump Docker logs
+        if: always()
+        run: docker logs android-container
+      # -----------------------------
+
+      # -----------------------------
+      # 17 - Bring container down
+      # -----------------------------
+      - name: Shutdown stacks
+        if: always()
+        run: |
+          docker compose down
+
+  deploy-reports:
+    needs: test-android
+    if: always()
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
