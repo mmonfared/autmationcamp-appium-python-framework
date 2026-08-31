@@ -151,7 +151,7 @@ jobs:
           path: allure-report
 
       # -----------------------------
-      # 14. Upload Upload Allure Report for GitHub Pages
+      # 14. Upload Allure Report for GitHub Pages
       # -----------------------------
       - name: Upload Allure Report for GitHub Pages
         uses: actions/upload-pages-artifact@v4
